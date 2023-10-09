@@ -1,10 +1,14 @@
 <template>
   <div id="app">
     <div class="chat">
+      <select v-model="currentRoom" @change="changeRoom">
+        <option v-for="room in rooms" :key="room" :value="room">{{ room }}</option>
+      </select>
       <div class="messages">
         <div v-for="message in messages" :key="message.id">{{ message.text }}</div>
       </div>
       <input v-model="newMessage" @keyup.enter="sendMessage" placeholder="Type a message" />
+      <button @click="sendMessage">Send</button>
     </div>
   </div>
 </template>
@@ -18,23 +22,36 @@ export default {
       newMessage: '',
       messages: [],
       socket: null,
+      currentRoom: 'General',
+      rooms: ['General', 'Sports', 'Technology'],
     };
   },
   created() {
     this.socket = io('http://localhost:3000');
     this.socket.on('message', this.receiveMessage);
-    this.socket.on('connect', () => console.log('Connected to server'));
-    this.socket.on('disconnect', () => console.log('Disconnected from server'));
+    this.socket.on('update messages', this.updateMessages);  // новый обработчик событий
+    this.joinRoom(this.currentRoom);
   },
   methods: {
     sendMessage() {
       if (this.newMessage.trim() !== '') {
-        this.socket.emit('message', this.newMessage);
+        this.socket.emit('message', this.currentRoom, this.newMessage);
         this.newMessage = '';
       }
     },
     receiveMessage(message) {
       this.messages.push({ text: message, id: this.messages.length });
+    },
+    joinRoom(room) {
+      this.socket.emit('join room', room);
+    },
+    changeRoom() {
+      this.socket.emit('leave room', this.currentRoom);
+      this.messages = [];
+      this.joinRoom(this.currentRoom);
+    },
+    updateMessages(messages) {
+      this.messages = messages.map((message, index) => ({ text: message, id: index }));
     },
   },
 };
